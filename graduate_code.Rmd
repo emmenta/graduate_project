@@ -1,0 +1,120 @@
+---
+title: "Graduate_project"
+author: "Emmenta Janneh, Alphonso Saiewane, and Silvy Saint-Jane"
+date: "2024-04-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(dplyr)
+```
+
+## Data
+
+Summary introduction
+
+```{r}
+revenue <- read.csv("revenue.csv")
+glimpse(revenue)
+```
+
+Describe rows and columns
+
+## Data Cleaning and Formating
+
+Remove all duplicated columns (TAX.CODE and TAX.KIND)
+Proper formatting of columns
+Remove NULL rows
+
+```{r, message = FALSE, warning = FALSE}
+revenue <- rename(revenue, "Tax_code" = "TAX.CODE", "Tax_Kind" = "TAX.KIND", "Receipt_NO" = "RECEIPT.NO", "Amount" = "Consol.", "Pay_Date" = "PAY.DATE")
+
+revenue <- revenue |> mutate(
+                  Tax_Kind = factor(Tax_Kind),
+                  TIN = factor(TIN),
+                  CBO = factor(CBO),
+                  Pay_Date = as.Date(Pay_Date, format = "%m/%d/%Y"),
+                  Amount = as.numeric(gsub(",", "", Amount))
+) |> 
+  filter(Amount > 0) |> 
+  select(- Tax_code) |>
+  glimpse()
+
+```
+
+## Basic Analysis
+
+```{r}
+summary_stat <- summary(revenue)
+summary_stat
+```
+## Trend
+
+```{r, message=FALSE}
+top_payers <- as.data.frame(revenue)
+top_payers$month_year <- format(top_payers$Pay_Date, "%Y-%m")
+
+top_payers <- top_payers |> group_by(month_year, TIN) |> summarise(total_payment = sum(Amount)) |> ungroup()
+
+total_unique_months <- length(unique(top_payers$month_year))
+
+company_month_counts <- top_payers |> 
+  group_by(TIN) |>
+  summarise(unique_months = n_distinct(month_year))
+
+companies_with_all_months <- company_month_counts |>
+  filter(unique_months == total_unique_months)
+
+loopi <- companies_with_all_months$TIN
+
+trend <- data.frame()
+for(i in loopi){
+  trend <- rbind(trend, filter(top_payers, TIN == i))
+}
+
+top_10 <- trend |> 
+  group_by(TIN) |> 
+  summarise(total_payment = sum(total_payment)) |>
+  arrange(desc(total_payment)) |>
+  top_n(10, total_payment)
+
+ggplot(top_10, aes(x = TIN, y = total_payment, fill = TIN)) +
+  geom_bar(stat = "identity", width = 0.5)
+```
+ 
+```{r}
+loopj <- top_10$TIN
+
+trending_10 <- data.frame()
+for(j in loopj){
+  trending_10 <- rbind(trending_10, filter(top_payers, TIN == j))
+}
+
+convert_to_numeric <- function(date_string) {
+  # Split the string by "-"
+  date_parts <- strsplit(date_string, "-")[[1]]
+  
+  # Extract year and month
+  year <- as.numeric(date_parts[1])
+  month <- as.numeric(date_parts[2])
+  
+  # Combine year and month into a numeric value
+  numeric_value <- year * 100 + month
+  
+  return(numeric_value)
+}
+
+# Apply the function to each date string
+trending_10$ndate <- sapply(trending_10$month_year, convert_to_numeric)
+
+ggplot(trending_10, aes(x = ndate, y = total_payment, color = TIN)) + 
+  geom_line(linewidth = 1) +
+  labs(title = "Top 10 Paying Companies Over Time",
+       x = "Month",
+       y = "Total Payment",
+       color = "Company") +
+  theme_minimal()
+```
+
+
