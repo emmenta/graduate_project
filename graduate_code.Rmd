@@ -79,8 +79,9 @@ top_10 <- trend |>
   arrange(desc(total_payment)) |>
   top_n(10, total_payment)
 
-ggplot(top_10, aes(x = TIN, y = total_payment, fill = TIN)) +
-  geom_bar(stat = "identity", width = 0.5)
+ggplot(top_10, aes(x = TIN, y = total_payment/1000, fill = TIN)) +
+  geom_bar(stat = "identity", width = 0.5) + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
 ```
  
 ```{r}
@@ -117,4 +118,23 @@ ggplot(trending_10, aes(x = ndate, y = total_payment, color = TIN)) +
   theme_minimal()
 ```
 
+
+```{r, fig.height=10}
+ggplot(revenue, aes(x = Tax_Kind, fill = CBO)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 12))
+```
+
+
+
+```{r}
+ggplot(revenue, aes(x = Description, y = Amount, color = Description)) +
+  geom_boxplot()
+```
+
+
+```{r}
+ggplot(revenue, aes(x = Pay_Date, y = Amount, color = Description)) +
+  geom_point()
+```
 
