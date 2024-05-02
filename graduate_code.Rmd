@@ -8,24 +8,39 @@ output: html_document
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(dplyr)
+library(sqldf)
 ```
+
+# Introduction
+
+In today's economic landscape, the accurate reporting and management of revenue tax payments are paramount for both governmental bodies and businesses alike. The complexity of tax systems, coupled with evolving regulatory requirements, presents challenges in ensuring compliance and maximizing revenue collection efficiency. Traditional methods of tax reporting often suffer from inefficiencies, inaccuracies, and lack of transparency, leading to potential revenue loss and regulatory scrutiny.
+
+This project aims to address these challenges by leveraging data-driven approaches to streamline revenue tax payment reporting processes. By harnessing the power of data analytics using R and SQL, we seek to optimize tax reporting workflows, enhance accuracy, and provide actionable insights for stakeholders involved in revenue tax management.
 
 ## Data
 
-Summary introduction
+Our data is from a real-world revenue collection flat-file from January to March of 2024. For security reasons, the company name have been omitted from the data set leaving only their TIN numbers for identification.
 
 ```{r}
 revenue <- read.csv("revenue.csv")
 glimpse(revenue)
 ```
 
-Describe rows and columns
+The data set consist of 17,869 records of tax payment, and 9 columns. Description of the column variables are:
+
+  - TIN: Tax identification number
+  - CBO: Cooperate business office
+  - TAX_CODE: Tax code the identifies the tax kind
+  - TAX_KIND: The type or kind of tax paid
+  - PAY_DATE: The date payment was made
+  - Rate: The exchange rate from local to USD
+  - Consol.: The amount of payment in USD
+  - RECEIPT.NO: The receipt number
+  - Description: Payment description
 
 ## Data Cleaning and Formating
 
-Remove all duplicated columns (TAX.CODE and TAX.KIND)
-Proper formatting of columns
-Remove NULL rows
+We decided to remove all redundant columns (example TAX.CODE) to avoid complications, proper formatting of columns were made, and all NULL Consol. values or 0 value rows were removed using `dplyr`
 
 ```{r, message = FALSE, warning = FALSE}
 revenue <- rename(revenue, "Tax_code" = "TAX.CODE", "Tax_Kind" = "TAX.KIND", "Receipt_NO" = "RECEIPT.NO", "Amount" = "Consol.", "Pay_Date" = "PAY.DATE")
@@ -43,13 +58,18 @@ revenue <- revenue |> mutate(
 
 ```
 
-## Basic Analysis
+# Reporting Analysis
+
+## Summary Statistics
+First we choose to look at a summary statistics for each column in the data set.
 
 ```{r}
 summary_stat <- summary(revenue)
-summary_stat
+print(summary_stat)
 ```
-## Trend
+## Trend - Which companies are the highest revenue payers over the three months?
+
+For this analysis, we rearrange the data to fit consistent tax payers and producing a bar chart for simple visualization for top executive officers.
 
 ```{r, message=FALSE}
 top_payers <- as.data.frame(revenue)
@@ -83,7 +103,10 @@ ggplot(top_10, aes(x = TIN, y = total_payment/1000, fill = TIN)) +
   geom_bar(stat = "identity", width = 0.5) + 
   theme(axis.text.x = element_text(angle = 60, hjust = 1))
 ```
- 
+
+## Trend - What is the payment flow for these top ten companies?
+
+
 ```{r}
 loopj <- top_10$TIN
 
@@ -118,23 +141,62 @@ ggplot(trending_10, aes(x = ndate, y = total_payment, color = TIN)) +
   theme_minimal()
 ```
 
+## What is the payment distribution amongst the CBOs for each tax kind?
 
 ```{r, fig.height=10}
 ggplot(revenue, aes(x = Tax_Kind, fill = CBO)) +
   geom_bar() +
-  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 12))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 12))
 ```
 
-
+## Plot a graph for Amount on individual payment description
 
 ```{r}
 ggplot(revenue, aes(x = Description, y = Amount, color = Description)) +
   geom_boxplot()
 ```
 
+## Plot a payment on date graph, categorizing by payment description.
 
 ```{r}
 ggplot(revenue, aes(x = Pay_Date, y = Amount, color = Description)) +
   geom_point()
+```
+
+# SQL Analysis
+
+## Top 10 highest revenue collected for each month
+
+```{r}
+monthly_ten <- sqldf("SELECT * FROM
+          (SELECT 'January' AS Month, TIN, total_payment FROM top_payers WHERE month_year == '2024-01' ORDER BY total_payment DESC LIMIT 10)
+      UNION
+SELECT * FROM 
+        (SELECT 'February' AS Month, TIN, total_payment FROM top_payers WHERE month_year == '2024-02' ORDER BY total_payment DESC LIMIT 10)
+      UNION
+SELECT * FROM 
+        (SELECT 'March' AS Month, TIN, total_payment FROM top_payers WHERE month_year == '2024-03' ORDER BY total_payment DESC LIMIT 10) ORDER BY total_payment
+")
+
+print(monthly_ten)
+```
+### Plot
+
+```{r}
+ggplot(monthly_ten, aes(x = TIN, y = total_payment, color = Month, size = total_payment)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+```
+
+## The most frequent tax description
+
+```{r}
+sqldf("SELECT DISTINCT(Description), COUNT(Description) AS Freq FROM revenue GROUP BY Description ORDER BY Freq DESC")
+```
+
+## Display CBO in hierarchy of Tax collection
+
+```{r}
+sqldf("SELECT DISTINCT(CBO), SUM(Amount) AS Total_Tax_Collection FROM revenue GROUP BY CBO ORDER BY Total_Tax_Collection DESC")
 ```
 
