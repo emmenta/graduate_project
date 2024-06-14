@@ -1,6 +1,6 @@
 ---
 title: "Graduate_project"
-author: "Emmenta Janneh, Alphonso Saiewane, and Silvy Saint-Jane"
+author: "Emmenta Janneh, Alphonso Saiewane, and Silvy S."
 date: "2024-04-30"
 output: html_document
 ---
